@@ -833,6 +833,9 @@ typedef void(^NSURLSessionDataTaskFailure)(NSURLSessionDataTask *task, NSError *
     configuration.HTTPAdditionalHeaders = _additionalHeaders;
     configuration.timeoutIntervalForRequest = timeout;
     configuration.HTTPMaximumConnectionsPerHost = maximumConnections;
+    if (_configuration.protocolClasses.count) {
+        configuration.protocolClasses = _configuration.protocolClasses;
+    }
     
     return configuration;
 }

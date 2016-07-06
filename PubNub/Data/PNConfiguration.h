@@ -198,6 +198,9 @@
  */
 @property (nonatomic, assign, getter = shouldTryCatchUpOnSubscriptionRestore) BOOL catchUpOnSubscriptionRestore;
 
+
+@property (nonatomic, copy) NSArray <Class> *protocolClasses;
+
 /**
  @brief  Construct configuration instance using minimal required data.
  
