@@ -9,7 +9,7 @@
 
 Pod::Spec.new do |spec|
     spec.name     = 'PubNub'
-    spec.version  = '4.3.3'
+    spec.version  = '4.7.3'
     spec.summary  = 'The PubNub Real-Time Network. Build real-time apps quickly and scale them globally.'
     spec.homepage = 'https://github.com/pubnub/objective-c'
 
@@ -31,31 +31,41 @@ Pod::Spec.new do |spec|
     spec.subspec 'Core' do |core|
         core.source_files = 'PubNub/{Core,Data,Misc,Network}/**/*', 'PubNub/PubNub.h'
         core.private_header_files = [
-            'PubNub/Core/*Private.h',
-            'PubNub/Data/*Private.h',
-            'PubNub/Data/PNKeychain.h',
-            'PubNub/Data/PNEnvelopeInformation.h',
+            'PubNub/**/*Private.h',
+            'PubNub/Data/{PNEnvelopeInformation,PNKeychain}.h',
             'PubNub/Data/Managers/**/*.h',
-            'PubNub/Data/Service Objects/*Private.h',
             'PubNub/Misc/{PNConstants,PNPrivateStructures}.h',
-            'PubNub/Misc/Helpers/*.h',
-            'PubNub/Misc/Logger/{PNLogFileManager,PNLogger,PNLogMacro}.h',
+            'PubNub/Misc/Helpers/{PNArray,PNChannel,PNData,PNDictionary,PNGZIP,PNHelpers,PNJSON,PNLockSupport,PNNumber,PNString,PNURLRequest}.h',
+            'PubNub/Misc/Logger/PNLogMacro.h',
+            'PubNub/Misc/Logger/Data/*.h',
             'PubNub/Misc/Protocols/PNParser.h',
             'PubNub/Network/**/*.h',
         ]
-        core.exclude_files = "PubNub/Core/PubNub+FAB.{h,m}"
+        core.exclude_files = 'PubNub/Core/PubNub+FAB.{h,m}'
+        core.pod_target_xcconfig = { 'APPLICATION_EXTENSION_API_ONLY' => 'YES' }
+    end
+
+    spec.subspec 'Logger' do |logger|
+        logger.source_files = 'PubNub/Misc/Logger/{Core,Data}/**/*', 'PubNub/Misc/Helpers/{PNLockSupport,PNDefines}.{h,m}'
+        logger.private_header_files = [
+            'PubNub/Misc/Logger/Data/*.h',
+            'PubNub/Misc/Helpers/{PNLockSupport,PNDefines}.h'
+        ]
     end
 
     spec.subspec 'Fabric' do |fabric|
         fabric.dependency 'PubNub/Core'
         fabric.source_files = 'PubNub/Core/PubNub+FAB.{h,m}', 'Support/Fabric/Headers/*'
         fabric.private_header_files = [ 'Support/Fabric/Headers/{Fabric+FABKits,FABKitProtocol}.h' ]
-        fabric.xcconfig = { 'GCC_PREPROCESSOR_DEFINITIONS' => 'FABRIC_SUPPORT=1'  }
-        fabric.pod_target_xcconfig = { 'GCC_PREPROCESSOR_DEFINITIONS' => 'FABRIC_SUPPORT=1'  }
+        fabric.exclude_files = 'Support/Fabric/Headers/PubNub.h'
+        fabric.xcconfig = { 'GCC_PREPROCESSOR_DEFINITIONS' => 'FABRIC_SUPPORT=1' }
+        fabric.pod_target_xcconfig = { 
+            'APPLICATION_EXTENSION_API_ONLY' => 'YES',
+            'GCC_PREPROCESSOR_DEFINITIONS' => 'FABRIC_SUPPORT=1'
+        }
     end
 
     spec.library   = 'z'
-    spec.dependency 'CocoaLumberjack', '2.3.0'
     spec.default_subspec = 'Core'
 
     spec.license = { 

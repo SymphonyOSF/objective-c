@@ -1,7 +1,7 @@
 /**
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import "PNMessagePublishParser.h"
 #import "PNDictionary.h"
@@ -25,7 +25,7 @@
 
 #pragma mark - Parsing
 
-+ (nullable NSDictionary<NSString *, id> *)parsedServiceResponse:(id)response {
++ (NSDictionary<NSString *, id> *)parsedServiceResponse:(id)response {
     
     // To handle case when response is unexpected for this type of operation processed value sent through 
     // 'nil' initialized local variable.

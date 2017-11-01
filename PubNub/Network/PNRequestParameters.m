@@ -1,7 +1,7 @@
 /**
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import "PNRequestParameters.h"
 
@@ -40,12 +40,22 @@
 
 #pragma mark - Information
 
-- (nullable NSDictionary<NSString *, NSString *> *)pathComponents {
+- (void)setHTTPMethod:(NSString *)method {
+
+    static NSArray<NSString *> *_allowedHTTPMethods;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{ _allowedHTTPMethods = @[@"GET", @"POST", @"DELETE"]; });
+    if (method && [_allowedHTTPMethods indexOfObjectIdenticalTo:method] != NSNotFound) {
+        _HTTPMethod = [method copy];
+    }
+}
+
+- (NSDictionary<NSString *, NSString *> *)pathComponents {
     
     return (self.resourcePathComponents.count ? [self.resourcePathComponents copy] : nil);
 }
 
-- (nullable NSDictionary<NSString *, NSString *> *)query {
+- (NSDictionary<NSString *, NSString *> *)query {
     
     return (self.queryFields.count ? [self.queryFields copy] : nil);
 }
@@ -60,6 +70,7 @@
         
         _resourcePathComponents = [NSMutableDictionary new];
         _queryFields = [NSMutableDictionary new];
+        _HTTPMethod = @"GET";
     }
     
     return self;

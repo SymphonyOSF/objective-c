@@ -1,9 +1,10 @@
 /**
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import "PNSubscriberResults.h"
+#import "PNSubscribeStatus+Private.h"
 #import "PNServiceData+Private.h"
 #import "PNResult+Private.h"
 
@@ -20,9 +21,24 @@
     return self.serviceData[@"timetoken"];
 }
 
-- (nullable NSString *)uuid {
+- (NSString *)uuid {
     
     return self.serviceData[@"uuid"];
+}
+
+- (NSString *)join {
+    
+    return self.serviceData[@"join"];
+}
+
+- (NSString *)leave {
+    
+    return self.serviceData[@"leave"];
+}
+
+- (NSString *)timeout {
+    
+    return self.serviceData[@"timeout"];
 }
 
 - (NSNumber *)occupancy {
@@ -30,7 +46,7 @@
     return self.serviceData[@"occupancy"];
 }
 
-- (nullable NSDictionary<NSString *, id> *)state {
+- (NSDictionary<NSString *, id> *)state {
     
     return self.serviceData[@"state"];
 }
@@ -71,7 +87,12 @@
 
 #pragma mark - Information
 
-- (nullable id)message {
+- (NSString *)publisher {
+    
+    return self.envelope.senderIdentifier;
+}
+
+- (id)message {
     
     return self.serviceData[@"message"];
 }

@@ -1,29 +1,20 @@
 /**
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import "PNAES.h"
 #import <CommonCrypto/CommonCryptor.h>
 #import <CommonCrypto/CommonHMAC.h>
 #import "PubNub+CorePrivate.h"
-#import <libkern/OSAtomic.h>
 #import "PNErrorCodes.h"
+#import "PNConstants.h"
 #import "PNLogMacro.h"
+#import "PNLLogger.h"
 #import "PNHelpers.h"
 
 
-#pragma mark CocoaLumberjack logging support
-
-/**
- @brief  Cocoa Lumberjack logging level configuration for cryptor helper.
- 
- @since 4.0
- */
-static DDLogLevel ddLogLevel = (NSUInteger)PNAESErrorLogLevel;
-
-
-#pragma mark - Static
+#pragma mark Static
 
 /**
  @brief  Initializing vector used to initialize (de)cryptor.
@@ -93,42 +84,14 @@ NS_ASSUME_NONNULL_END
 @implementation PNAES
 
 
-#pragma mark - Logger
-
-/**
- @brief  Called by Cocoa Lumberjack during initialization.
- 
- @return Desired logger level for \b PubNub client main class.
- 
- @since 4.0
- */
-+ (DDLogLevel)ddLogLevel {
-    
-    return ddLogLevel;
-}
-
-/**
- @brief  Allow modify logger level used by Cocoa Lumberjack with logging macros.
- 
- @param logLevel New log level which should be used by logger.
- 
- @since 4.0
- */
-+ (void)ddSetLogLevel:(DDLogLevel)logLevel {
-    
-    ddLogLevel = logLevel;
-}
-
-
 #pragma mark - Data encryption
 
-+ (nullable NSString *)encrypt:(NSData *)data withKey:(NSString *)key {
++ (NSString *)encrypt:(NSData *)data withKey:(NSString *)key {
     
     return [self encrypt:data withKey:key andError:NULL];
 }
 
-+ (nullable NSString *)encrypt:(NSData *)data withKey:(NSString *)key
-                      andError:(NSError *__autoreleasing *)error {
++ (NSString *)encrypt:(NSData *)data withKey:(NSString *)key andError:(NSError *__autoreleasing *)error {
     
     NSData *processedData = nil;
     NSError *encryptionError = nil;
@@ -159,22 +122,28 @@ NS_ASSUME_NONNULL_END
     if (encryptionError) {
         
         if (error != NULL) { *error = encryptionError; }
-        else { DDLogAESError([self ddLogLevel], @"<PubNub::AES> Encryption error: %@", encryptionError); }
+        else {
+            
+            PNLLogger *logger = [PNLLogger loggerWithIdentifier:kPNClientIdentifier];
+#if DEBUG
+            [logger enableLogLevel:PNAESErrorLogLevel];
+#endif
+            PNLogAESError(logger, @"<PubNub::AES> Encryption error: %@", encryptionError);
+        }
     }
     
-    return [PNData base64StringFrom:processedData];
+    return (processedData ? [PNData base64StringFrom:processedData] : nil);
 }
 
 
 #pragma mark - Data decryption
 
-+ (nullable NSData *)decrypt:(NSString *)object withKey:(NSString *)key {
++ (NSData *)decrypt:(NSString *)object withKey:(NSString *)key {
     
     return [self decrypt:object withKey:key andError:NULL];
 }
 
-+ (nullable NSData *)decrypt:(NSString *)object withKey:(NSString *)key
-                    andError:(NSError *__autoreleasing *)error {
++ (NSData *)decrypt:(NSString *)object withKey:(NSString *)key andError:(NSError *__autoreleasing *)error {
     
     NSError *decryptionError = nil;
     id decryptedObject = nil;
@@ -230,7 +199,14 @@ NS_ASSUME_NONNULL_END
     if (decryptionError) {
         
         if (error != NULL) { *error = decryptionError; }
-        else { DDLogAESError([self ddLogLevel], @"<PubNub::AES> Decryption error: %@", decryptionError); }
+        else {
+            
+            PNLLogger *logger = [PNLLogger loggerWithIdentifier:kPNClientIdentifier];
+#if DEBUG
+            [logger enableLogLevel:PNAESErrorLogLevel];
+#endif
+            PNLogAESError(logger, @"<PubNub::AES> Decryption error: %@", decryptionError);
+        }
     }
     
     return decryptedObject;
@@ -241,30 +217,32 @@ NS_ASSUME_NONNULL_END
 
 + (NSData *)SHA256HexFromKey:(NSString *)cipherKey {
     
-    static OSSpinLock _cipherKeysSpinLock;
+    static os_unfair_lock _cipherKeysSpinLock;
     static NSMutableDictionary *_cipherKeys;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         
-        _cipherKeysSpinLock = OS_SPINLOCK_INIT;
+        _cipherKeysSpinLock = OS_UNFAIR_LOCK_INIT;
         _cipherKeys = [NSMutableDictionary new];
     });
     
-    OSSpinLockLock(&_cipherKeysSpinLock);
-    NSData *key = _cipherKeys[cipherKey];
-    if (!key) {
+    __block NSData *key = nil;
+    pn_lock(&_cipherKeysSpinLock, ^{
         
-        NSString *SHA256String = [PNData HEXFrom:[PNString SHA256DataFrom:cipherKey]];
-        key = [PNString UTF8DataFrom:[SHA256String lowercaseString]];
-        _cipherKeys[cipherKey] = key;
-    }
-    OSSpinLockUnlock(&_cipherKeysSpinLock);
+        key = _cipherKeys[cipherKey];
+        if (!key) {
+            
+            NSString *SHA256String = [PNData HEXFrom:[PNString SHA256DataFrom:cipherKey]];
+            key = [PNString UTF8DataFrom:[SHA256String lowercaseString]];
+            _cipherKeys[cipherKey] = key;
+        }
+    });
     
     return key;
 }
 
-+ (nullable  NSData *)processedDataFrom:(NSData *)data withKey:(NSString *)cipherKey
-                           forOperation:(CCOperation)operation andStatus:(CCCryptorStatus *)status {
++ (NSData *)processedDataFrom:(NSData *)data withKey:(NSString *)cipherKey forOperation:(CCOperation)operation
+                    andStatus:(CCCryptorStatus *)status {
     
     NSData *cryptorKeyData = [self SHA256HexFromKey:cipherKey];
     NSMutableData *processedData = nil;

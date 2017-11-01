@@ -1,7 +1,7 @@
 /**
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import "PNString.h"
 #import <CommonCrypto/CommonCryptor.h>
@@ -48,7 +48,7 @@
 
 #pragma mark - Convertion
 
-+ (nullable NSData *)UTF8DataFrom:(NSString *)string {
++ (NSData *)UTF8DataFrom:(NSString *)string {
     
     return [string dataUsingEncoding:NSUTF8StringEncoding];
 }

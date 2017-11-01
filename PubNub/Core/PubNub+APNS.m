@@ -1,9 +1,10 @@
 /**
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import "PubNub+APNS.h"
+#import "PNAPICallBuilder+Private.h"
 #import "PNRequestParameters.h"
 #import "PubNub+CorePrivate.h"
 #import "PNStatus+Private.h"
@@ -74,32 +75,59 @@ NS_ASSUME_NONNULL_END
 @implementation PubNub (APNS)
 
 
+#pragma mark - API Builder support
+
+- (PNAPNSAPICallBuilder *(^)(void))push {
+    
+    PNAPNSAPICallBuilder *builder = nil; 
+    builder = [PNAPNSAPICallBuilder builderWithExecutionBlock:^(NSArray<NSString *> *flags, 
+                                                                NSDictionary *parameters) {
+        
+        NSData *pushToken = parameters[NSStringFromSelector(@selector(token))];
+        id block = parameters[@"block"];
+        if ([flags containsObject:NSStringFromSelector(@selector(audit))]) {
+            
+            [self pushNotificationEnabledChannelsForDeviceWithPushToken:pushToken andCompletion:block];
+        }
+        else {
+            
+            NSArray<NSString *> *channels = parameters[NSStringFromSelector(@selector(channels))];
+            BOOL enabling = [flags containsObject:NSStringFromSelector(@selector(enable))];
+            [self enablePushNotification:enabling onChannels:(channels.count ? channels : nil)
+                     withDevicePushToken:pushToken andCompletion:block];
+        }
+    }];
+    
+    return ^PNAPNSAPICallBuilder *{ return builder; };
+}
+
+
 #pragma mark - Push notifications state manipulation
 
 - (void)addPushNotificationsOnChannels:(NSArray<NSString *> *)channels withDevicePushToken:(NSData *)pushToken
-                         andCompletion:(nullable PNPushNotificationsStateModificationCompletionBlock)block {
+                         andCompletion:(PNPushNotificationsStateModificationCompletionBlock)block {
     
     [self enablePushNotification:YES onChannels:channels withDevicePushToken:pushToken andCompletion:block];
 }
 
 - (void)removePushNotificationsFromChannels:(NSArray<NSString *> *)channels
                         withDevicePushToken:(NSData *)pushToken
-                              andCompletion:(nullable PNPushNotificationsStateModificationCompletionBlock)block {
+                              andCompletion:(PNPushNotificationsStateModificationCompletionBlock)block {
     
     [self enablePushNotification:NO onChannels:channels withDevicePushToken:pushToken andCompletion:block];
 }
 
 - (void)removeAllPushNotificationsFromDeviceWithPushToken:(NSData *)pushToken
-                          andCompletion:(nullable PNPushNotificationsStateModificationCompletionBlock)block {
+                          andCompletion:(PNPushNotificationsStateModificationCompletionBlock)block {
     
     [self enablePushNotification:NO onChannels:nil withDevicePushToken:pushToken andCompletion:block];
 }
 
-- (void)enablePushNotification:(BOOL)shouldEnabled onChannels:(nullable NSArray<NSString *> *)channels
+- (void)enablePushNotification:(BOOL)shouldEnabled onChannels:(NSArray<NSString *> *)channels
            withDevicePushToken:(NSData *)pushToken
-                 andCompletion:(nullable PNPushNotificationsStateModificationCompletionBlock)block {
+                 andCompletion:(PNPushNotificationsStateModificationCompletionBlock)block {
 
-    BOOL removeAllChannels = (!shouldEnabled && channels == nil);
+    BOOL removeAllChannels = (!shouldEnabled && !channels.count);
     PNOperationType operationType = PNRemoveAllPushNotificationsOperation;
     PNRequestParameters *parameters = [PNRequestParameters new];
     if (pushToken.length) {
@@ -131,26 +159,19 @@ NS_ASSUME_NONNULL_END
             [parameters removePathComponentForPlaceholder:@"{token}"];
         }
 
-        DDLogAPICall([[self class] ddLogLevel], @"<PubNub::API> %@ push notifications for device '%@': %@.",
-                (shouldEnabled ? @"Enable" : @"Disable"),
-                [PNData HEXFromDevicePushToken:pushToken].lowercaseString,
-                [PNChannel namesForRequest:channels]);
+        PNLogAPICall(self.logger, @"<PubNub::API> %@ push notifications for device '%@': %@.",
+                     (shouldEnabled ? @"Enable" : @"Disable"), 
+                     [PNData HEXFromDevicePushToken:pushToken].lowercaseString, 
+                     [PNChannel namesForRequest:channels]);
     }
     else {
 
-        DDLogAPICall([[self class] ddLogLevel], @"<PubNub::API> Disable push notifications for device '%@'.",
-                [[PNData HEXFromDevicePushToken:pushToken] lowercaseString]);
+        PNLogAPICall(self.logger, @"<PubNub::API> Disable push notifications for device '%@'.",
+                     [[PNData HEXFromDevicePushToken:pushToken] lowercaseString]);
     }
 
     __weak __typeof(self) weakSelf = self;
     [self processOperation:operationType withParameters:parameters completionBlock:^(PNStatus *status){
-
-        // Silence static analyzer warnings.
-        // Code is aware about this case and at the end will simply call on 'nil' object method.
-        // In most cases if referenced object become 'nil' it mean what there is no more need in
-        // it and probably whole client instance has been deallocated.
-        #pragma clang diagnostic push
-        #pragma clang diagnostic ignored "-Wreceiver-is-weak"
         if (status.isError) {
             
             status.retryBlock = ^{
@@ -165,7 +186,6 @@ NS_ASSUME_NONNULL_END
                withCompletionBlock:NULL];
         }
         [weakSelf callBlock:block status:YES withResult:nil andStatus:status];
-        #pragma clang diagnostic pop
     }];
 }
 
@@ -182,19 +202,12 @@ NS_ASSUME_NONNULL_END
                       forPlaceholder:@"{token}"];
     }
 
-    DDLogAPICall([[self class] ddLogLevel], @"<PubNub::API> Push notification enabled channels for device '%@'.",
+    PNLogAPICall(self.logger, @"<PubNub::API> Push notification enabled channels for device '%@'.",
                  [PNData HEXFromDevicePushToken:pushToken].lowercaseString);
 
     __weak __typeof(self) weakSelf = self;
     [self processOperation:PNPushNotificationEnabledChannelsOperation withParameters:parameters
-           completionBlock:^(PNResult * _Nullable result, PNStatus * _Nullable status){
-
-               // Silence static analyzer warnings.
-               // Code is aware about this case and at the end will simply call on 'nil' object
-               // method. In most cases if referenced object become 'nil' it mean what there is no
-               // more need in it and probably whole client instance has been deallocated.
-               #pragma clang diagnostic push
-               #pragma clang diagnostic ignored "-Wreceiver-is-weak"
+           completionBlock:^(PNResult *result, PNStatus *status){
                if (status.isError) {
                     
                    status.retryBlock = ^{
@@ -204,7 +217,6 @@ NS_ASSUME_NONNULL_END
                    };
                }
                [weakSelf callBlock:block status:NO withResult:result andStatus:status];
-               #pragma clang diagnostic pop
            }];
 }
 

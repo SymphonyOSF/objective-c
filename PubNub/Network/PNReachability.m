@@ -1,23 +1,13 @@
 /**
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import "PNReachability.h"
 #import "PubNub+CorePrivate.h"
 #import "PNConfiguration.h"
 #import "PNLogMacro.h"
 #import "PubNub.h"
-
-
-#pragma mark CocoaLumberjack logging support
-
-/**
- @brief  Cocoa Lumberjack logging level configuration for network manager.
- 
- @since 4.0
- */
-static DDLogLevel ddLogLevel = (DDLogLevel)PNReachabilityLogLevel;
 
 
 NS_ASSUME_NONNULL_BEGIN
@@ -110,19 +100,6 @@ NS_ASSUME_NONNULL_END
 @synthesize pingRemoteService = _pingRemoteService;
 
 
-#pragma mark - Logger
-
-+ (DDLogLevel)ddLogLevel {
-    
-    return ddLogLevel;
-}
-
-+ (void)ddSetLogLevel:(DDLogLevel)logLevel {
-    
-    ddLogLevel = logLevel;
-}
-
-
 #pragma mark - Initialization and Configuration
 
 + (instancetype)reachabilityForClient:(PubNub *)client withPingStatus:(void (^)(BOOL))block {
@@ -136,6 +113,7 @@ NS_ASSUME_NONNULL_END
     if ((self = [super init])) {
         
         _client = client;
+        [_client.logger enableLogLevel:PNReachabilityLogLevel];
         _pingCompleteBlock = [block copy];
         _resourceAccessQueue = dispatch_queue_create("com.pubnub.reachability",
                                                      DISPATCH_QUEUE_CONCURRENT);
@@ -188,11 +166,11 @@ NS_ASSUME_NONNULL_END
     BOOL successfulPing = (result.data != nil);
     if (self.reachable && !successfulPing) {
         
-        DDLogReachability([[self class] ddLogLevel], @"<PubNub::Reachability> Connection went down.");
+        PNLogReachability(self.client.logger, @"<PubNub::Reachability> Connection went down.");
     }
     if (!self.reachable && successfulPing) {
         
-        DDLogReachability([[self class] ddLogLevel], @"<PubNub::Reachability> Connection restored.");
+        PNLogReachability(self.client.logger, @"<PubNub::Reachability> Connection restored.");
     }
     if (self.pingCompleteBlock) { self.pingCompleteBlock(successfulPing); }
     if (self.pingingRemoteService) {

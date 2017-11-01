@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import "PNStructures.h"
+#import "PNLLogger.h"
 
 
 #pragma mark Class forward
@@ -17,7 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
 
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 @interface PubNub : NSObject
 
@@ -25,6 +26,14 @@ NS_ASSUME_NONNULL_BEGIN
 ///------------------------------------------------
 /// @name Information
 ///------------------------------------------------
+
+/**
+ @brief  Reference on \b PubNub client logger instance which can be used to inser additional logs into console
+         (if enabled) and file (if enabled).
+ 
+ @since 4.5.0
+ */
+@property (nonatomic, readonly, strong) PNLLogger *logger;
 
 /**
  @brief  Retrive basic information about \b PubNub client.
@@ -79,7 +88,7 @@ self.client = [PubNub clientWithConfiguration:configuration];
 
  @since 4.0
 */
-+ (instancetype)clientWithConfiguration:(PNConfiguration *)configuration;
++ (instancetype)clientWithConfiguration:(PNConfiguration *)configuration NS_SWIFT_NAME(clientWithConfiguration(_:));
 
 /**
  @brief      Construct new \b PubNub client instance with pre-defined configuration.
@@ -108,7 +117,7 @@ self.client = [PubNub clientWithConfiguration:configuration callbackQueue:queue]
  @since 4.0
 */
 + (instancetype)clientWithConfiguration:(PNConfiguration *)configuration
-                          callbackQueue:(nullable dispatch_queue_t)callbackQueue;
+                          callbackQueue:(nullable dispatch_queue_t)callbackQueue NS_SWIFT_NAME(clientWithConfiguration(_:callbackQueue:));
 
 /**
  @brief      Make copy of client with it's current state using new configuration.
@@ -141,7 +150,7 @@ configuration.TLSEnabled = NO;
  
  @since 4.0
  */
-- (void)copyWithConfiguration:(PNConfiguration *)configuration completion:(void(^)(PubNub *client))block;
+- (void)copyWithConfiguration:(PNConfiguration *)configuration completion:(void(^)(PubNub *client))block NS_SWIFT_NAME(copyWithConfiguration(_:completion:));
 
 /**
  @brief      Make copy of client with it's current state using new configuration.
@@ -180,7 +189,7 @@ configuration.TLSEnabled = NO;
  */
 - (void)copyWithConfiguration:(PNConfiguration *)configuration
                 callbackQueue:(nullable dispatch_queue_t)callbackQueue
-                   completion:(void(^)(PubNub *client))block;
+                   completion:(void(^)(PubNub *client))block NS_SWIFT_NAME(copyWithConfiguration(_:callbackQueue:completion:));
 
 #pragma mark -
 

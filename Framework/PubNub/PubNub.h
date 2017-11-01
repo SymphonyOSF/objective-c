@@ -16,6 +16,9 @@ FOUNDATION_EXPORT const unsigned char PubNubVersionString[];
 // Protocols
 #import "PNObjectEventListener.h"
 
+// Categories
+#import "NSURLSessionConfiguration+PNConfiguration.h"
+
 // Data objects
 #import "PNPresenceChannelGroupHereNowResult.h"
 #import "PNChannelGroupClientStateResult.h"
@@ -52,7 +55,7 @@ FOUNDATION_EXPORT const unsigned char PubNubVersionString[];
 #import "PNStructures.h"
 #import "PubNub+APNS.h"
 #import "PubNub+Time.h"
+#import "PNLLogger.h"
 #import "PNResult.h"
 #import "PNStatus.h"
 #import "PNAES.h"
-#import "PNLog.h"

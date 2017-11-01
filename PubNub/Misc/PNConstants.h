@@ -3,7 +3,7 @@
 
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import <Foundation/Foundation.h>
 #import "PNStructures.h"
@@ -15,31 +15,47 @@
 #pragma mark General information constants
 
 // Stores client library version number
-static NSString * const kPNLibraryVersion = @"4.3.3";
+static NSString * const kPNLibraryVersion = @"4.7.3";
 
 // Stores information about SDK codebase
-static NSString * const kPNCommit = @"2123b8a9ea9b35ba486c5f4987cd25216f85544a";
+static NSString * const kPNCommit = @"364c1ac586ee706fd6ec070d0455c924f6fda475";
 
-#if TARGET_OS_WATCH
-    static NSString * const kPNClientName = @"ObjC-watchOS";
-#elif __IPHONE_OS_VERSION_MIN_REQUIRED
+/**
+ @brief  Stores reference on unique identifier which is used to identify \b PubNub client among other 
+         \b PubNub products.
+ 
+ @since 4.5.0
+ */
+static NSString * const kPNClientIdentifier = @"com.pubnub.pubnub-objc";
+
+#if TARGET_OS_IOS
     static NSString * const kPNClientName = @"ObjC-iOS";
-#elif __MAC_OS_X_VERSION_MIN_REQUIRED
-    static NSString * const kPNClientName = @"ObjC-MacOS";
-#endif // __MAC_OS_X_VERSION_MIN_REQUIRED
+#elif TARGET_OS_WATCH
+    static NSString * const kPNClientName = @"ObjC-watchOS";
+#elif TARGET_OS_TV
+    static NSString * const kPNClientName = @"ObjC-tvOS";
+#elif TARGET_OS_OSX
+    static NSString * const kPNClientName = @"ObjC-macOS";
+#endif // TARGET_OS_OSX
 
 
 #pragma mark - Default client configuration
 
-static NSString * const kPNDefaultOrigin = @"pubsub.pubnub.com";
+static NSString * const kPNDefaultOrigin = @"ps.pndsn.com";
 
 static NSTimeInterval const kPNDefaultSubscribeMaximumIdleTime = 310.0f;
 static NSTimeInterval const kPNDefaultNonSubscribeRequestTimeout = 10.0f;
 
 static BOOL const kPNDefaultIsTLSEnabled = YES;
 static PNHeartbeatNotificationOptions const kPNDefaultHeartbeatNotificationOptions = PNHeartbeatNotifyFailure;
+static BOOL const kPNDefaultShouldSuppressLeaveEvents = NO;
 static BOOL const kPNDefaultShouldKeepTimeTokenOnListChange = YES;
-static BOOL const kPNDefaultShouldRestoreSubscription = YES;
 static BOOL const kPNDefaultShouldTryCatchUpOnSubscriptionRestore = YES;
+static BOOL const kPNDefaultRequestMessageCountThreshold = 0;
+static NSUInteger const kPNDefaultMaximumMessagesCacheSize = 100;
+#if TARGET_OS_IOS
+static BOOL const kPNDefaultShouldCompleteRequestsBeforeSuspension = YES;
+#endif // TARGET_OS_IOS
+static BOOL const kPNDefaultShouldStripMobilePayload = YES;
 
 #endif // PNConstants_h

@@ -1,22 +1,25 @@
 /**
  @brief  Define list of macro which used by clien't component to print out messages using 
-         \b CocoaLumberjack framework.
+         \b PNLLogger.
  
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
-#import <CocoaLumberjack/CocoaLumberjack.h>
+#import "PNLLogger.h"
+#import "PNDefines.h"
 
 #pragma once
 
-#define PNLOG(level, pnll, frmt, ...) LOG_MAYBE(NO, pnll, (DDLogFlag)level, 0, nil, \
-                                           __PRETTY_FUNCTION__, frmt, ##__VA_ARGS__)
-#define DDLogClientInfo(pnll, frmt, ...) PNLOG(PNInfoLogLevel, pnll, frmt, ##__VA_ARGS__)
-#define DDLogReachability(pnll, frmt, ...) PNLOG(PNReachabilityLogLevel, pnll, frmt, ##__VA_ARGS__)
-#define DDLogRequest(pnll, frmt, ...) PNLOG(PNRequestLogLevel, pnll, frmt, ##__VA_ARGS__)
-#define DDLogResult(pnll, frmt, ...) PNLOG(PNResultLogLevel, pnll, frmt, ##__VA_ARGS__)
-#define DDLogStatus(pnll, frmt, ...) PNLOG(PNStatusLogLevel, pnll, frmt, ##__VA_ARGS__)
-#define DDLogFailureStatus(pnll, frmt, ...) PNLOG(PNFailureStatusLogLevel, pnll, frmt, ##__VA_ARGS__)
-#define DDLogAESError(pnll, frmt, ...) PNLOG(PNAESErrorLogLevel, pnll, frmt, ##__VA_ARGS__)
-#define DDLogAPICall(pnll, frmt, ...) PNLOG(PNAPICallLogLevel, pnll, frmt, ##__VA_ARGS__)
+#define PNLOG(logger, level, frmt, ...) [logger log:level format:frmt, ##__VA_ARGS__]
+#define PNLogClientInfo(logger, frmt, ...) PNLOG(logger, PNInfoLogLevel, frmt, ##__VA_ARGS__)
+#define PNLogReachability(logger, frmt, ...) PNLOG(logger, PNReachabilityLogLevel, frmt, ##__VA_ARGS__)
+#define PNLogRequest(logger, frmt, ...) PNLOG(logger, PNRequestLogLevel, frmt, ##__VA_ARGS__)
+#if PN_URLSESSION_TRANSACTION_METRICS_AVAILABLE
+    #define PNLogRequestMetrics(logger, frmt, ...) PNLOG(logger, PNRequestMetricsLogLevel, frmt, ##__VA_ARGS__)
+#endif
+#define PNLogResult(logger, frmt, ...) PNLOG(logger, PNResultLogLevel, frmt, ##__VA_ARGS__)
+#define PNLogStatus(logger, frmt, ...) PNLOG(logger, PNStatusLogLevel, frmt, ##__VA_ARGS__)
+#define PNLogFailureStatus(logger, frmt, ...) PNLOG(logger, PNFailureStatusLogLevel, frmt, ##__VA_ARGS__)
+#define PNLogAESError(logger, frmt, ...) PNLOG(logger, PNAESErrorLogLevel, frmt, ##__VA_ARGS__)
+#define PNLogAPICall(logger, frmt, ...) PNLOG(logger, PNAPICallLogLevel, frmt, ##__VA_ARGS__)

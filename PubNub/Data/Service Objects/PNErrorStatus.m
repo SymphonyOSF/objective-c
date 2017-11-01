@@ -1,7 +1,7 @@
 /**
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import "PNErrorStatus+Private.h"
 #import "PNServiceData+Private.h"
@@ -27,7 +27,7 @@
     return (self.serviceData[@"information"]?: @"No Error Information");
 }
 
-- (nullable id)data {
+- (id)data {
     
     return self.serviceData[@"data"];
 }

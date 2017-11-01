@@ -1,9 +1,10 @@
 /**
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import "PubNub+PresencePrivate.h"
+#import "PNAPICallBuilder+Private.h"
 #import "PNPrivateStructures.h"
 #import "PNRequestParameters.h"
 #import "PubNub+CorePrivate.h"
@@ -54,6 +55,38 @@ NS_ASSUME_NONNULL_END
 @implementation PubNub (Presence)
 
 
+#pragma mark - API Builder support
+
+- (PNPresenceAPICallBuilder *(^)(void))presence {
+    
+    PNPresenceAPICallBuilder *builder = nil;
+    builder = [PNPresenceAPICallBuilder builderWithExecutionBlock:^(NSArray<NSString *> *flags, 
+                                                                    NSDictionary *parameters) {
+                                         
+        NSString *object = (parameters[NSStringFromSelector(@selector(channel))]?: 
+                            parameters[NSStringFromSelector(@selector(channelGroup))]);
+        PNOperationType type = PNHereNowGlobalOperation;
+        if (object) {
+
+            type = PNHereNowForChannelOperation;
+            if (parameters[NSStringFromSelector(@selector(channelGroup))]) {
+
+                type = PNHereNowForChannelGroupOperation;
+            }
+        }
+        PNHereNowVerbosityLevel level = PNHereNowState;
+        if (parameters[NSStringFromSelector(@selector(verbosity))]) {
+
+            level = ((NSNumber *)parameters[NSStringFromSelector(@selector(verbosity))]).integerValue;
+        }
+        id block = parameters[@"block"];
+        [self hereNowWithVerbosity:level forObject:object withOperationType:type completionBlock:block];
+    }];
+    
+    return ^PNPresenceAPICallBuilder *{ return builder; };
+}
+
+
 #pragma mark - Global here now
 
 - (void)hereNowWithCompletion:(PNGlobalHereNowCompletionBlock)block {
@@ -99,7 +132,7 @@ NS_ASSUME_NONNULL_END
                completionBlock:block];
 }
 
-- (void)hereNowWithVerbosity:(PNHereNowVerbosityLevel)level forObject:(nullable NSString *)object 
+- (void)hereNowWithVerbosity:(PNHereNowVerbosityLevel)level forObject:(NSString *)object 
            withOperationType:(PNOperationType)operation completionBlock:(id)block {
 
     PNRequestParameters *parameters = [PNRequestParameters new];
@@ -113,8 +146,8 @@ NS_ASSUME_NONNULL_END
     
     if (operation == PNHereNowGlobalOperation) {
         
-        DDLogAPICall([[self class] ddLogLevel], @"<PubNub::API> Global 'here now' information with "
-                     "%@ data.", PNHereNowDataStrings[level]);
+        PNLogAPICall(self.logger, @"<PubNub::API> Global 'here now' information with %@ data.",
+                     PNHereNowDataStrings[level]);
     }
     else {
         
@@ -129,21 +162,14 @@ NS_ASSUME_NONNULL_END
                                  forFieldName:@"channel-group"];
             }
         }
-        DDLogAPICall([[self class] ddLogLevel], @"<PubNub::API> Channel%@ 'here now' information "
-                     "for %@ with %@ data.", (operation == PNHereNowForChannelGroupOperation ? @" group" : @""), 
-                     (object?: @"<error>"), PNHereNowDataStrings[level]);
+        PNLogAPICall(self.logger, @"<PubNub::API> Channel%@ 'here now' information for %@ with %@ data.",
+                     (operation == PNHereNowForChannelGroupOperation ? @" group" : @""), (object?: @"<error>"),
+                     PNHereNowDataStrings[level]);
     }
     
     __weak __typeof(self) weakSelf = self;
-    [self processOperation:operation withParameters:parameters completionBlock:^(PNResult * _Nullable result,
-                                                                                 PNStatus * _Nullable status) {
-               
-        // Silence static analyzer warnings.
-        // Code is aware about this case and at the end will simply call on 'nil' object
-        // method. In most cases if referenced object become 'nil' it mean what there is no
-        // more need in it and probably whole client instance has been deallocated.
-        #pragma clang diagnostic push
-        #pragma clang diagnostic ignored "-Wreceiver-is-weak"
+    [self processOperation:operation withParameters:parameters 
+           completionBlock:^(PNResult *result, PNStatus *status) {
         if (status.isError) {
 
             status.retryBlock = ^{
@@ -153,7 +179,6 @@ NS_ASSUME_NONNULL_END
             };
         }
         [weakSelf callBlock:block status:NO withResult:result andStatus:status];
-        #pragma clang diagnostic pop
     }];
 }
 
@@ -167,25 +192,16 @@ NS_ASSUME_NONNULL_END
         
         [parameters addPathComponent:[PNString percentEscapedString:uuid] forPlaceholder:@"{uuid}"];
     }
-    DDLogAPICall([[self class] ddLogLevel], @"<PubNub::API> 'Where now' presence information for "
-                 "%@.", (uuid?: @"<error>"));
+    PNLogAPICall(self.logger, @"<PubNub::API> 'Where now' presence information for %@.", (uuid?: @"<error>"));
 
     __weak __typeof(self) weakSelf = self;
     [self processOperation:PNWhereNowOperation withParameters:parameters
-           completionBlock:^(PNResult * _Nullable result, PNStatus * _Nullable status) {
-               
-        // Silence static analyzer warnings.
-        // Code is aware about this case and at the end will simply call on 'nil' object
-        // method. In most cases if referenced object become 'nil' it mean what there is no
-        // more need in it and probably whole client instance has been deallocated.
-        #pragma clang diagnostic push
-        #pragma clang diagnostic ignored "-Wreceiver-is-weak"
+           completionBlock:^(PNResult *result, PNStatus *status) {
         if (status.isError) {
 
             status.retryBlock = ^{ [weakSelf whereNowUUID:uuid withCompletion:block]; };
         }
         [weakSelf callBlock:block status:NO withResult:result andStatus:status];
-        #pragma clang diagnostic pop
     }];
 }
 
@@ -221,21 +237,19 @@ NS_ASSUME_NONNULL_END
                                      forFieldName:@"state"];
                 }
             }
-            DDLogAPICall([[self class] ddLogLevel], @"<PubNub::API> Heartbeat for channels %@ and "
-                         "groups %@.", [channels componentsJoinedByString:@", "],
-                         [groups componentsJoinedByString:@", "]);
+            
+            PNLogAPICall(weakSelf.logger, @"<PubNub::API> Heartbeat for %@%@%@.",
+                         (channels.count ? [NSString stringWithFormat:@"channel%@ '%@'", 
+                                            (channels.count > 1 ? @"s" : @""),
+                                            [channels componentsJoinedByString:@", "]] : @""),
+                         (channels.count && groups.count ? @" and " : @""), 
+                         (groups.count ? [NSString stringWithFormat:@"group%@ '%@'", 
+                                          (groups.count > 1 ? @"s" : @""),
+                                          [groups componentsJoinedByString:@", "]] : @""));
             
             [self processOperation:PNHeartbeatOperation withParameters:parameters
                    completionBlock:^(PNStatus *status) {
-                       
-               // Silence static analyzer warnings.
-               // Code is aware about this case and at the end will simply call on 'nil' object
-               // method. In most cases if referenced object become 'nil' it mean what there is no
-               // more need in it and probably whole client instance has been deallocated.
-               #pragma clang diagnostic push
-               #pragma clang diagnostic ignored "-Wreceiver-is-weak"
                [weakSelf callBlock:block status:YES withResult:nil andStatus:status];
-               #pragma clang diagnostic pop
            }];
         }
     });

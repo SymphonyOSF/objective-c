@@ -1,7 +1,7 @@
 /**
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import "PNChannel.h"
 #import "PNString.h"
@@ -25,13 +25,12 @@ static NSString * const kPubNubPresenceChannelNameSuffix = @"-pnpres";
 
 #pragma mark - Lists encoding
 
-+ (nullable NSString *)namesForRequest:(NSArray<NSString *> *)names {
++ (NSString *)namesForRequest:(NSArray<NSString *> *)names {
     
     return [self namesForRequest:names defaultString:nil];
 }
 
-+ (nullable NSString *)namesForRequest:(NSArray<NSString *> *)names
-                         defaultString:(nullable NSString *)defaultString {
++ (NSString *)namesForRequest:(NSArray<NSString *> *)names defaultString:(NSString *)defaultString {
     
     NSString *namesForRequest = defaultString;
     if (names.count) {
@@ -74,7 +73,7 @@ static NSString * const kPubNubPresenceChannelNameSuffix = @"-pnpres";
     for (NSString *name in names) {
         
         NSString *targetName = name;
-        if (![name hasSuffix:kPubNubPresenceChannelNameSuffix]) {
+        if (![name hasSuffix:kPubNubPresenceChannelNameSuffix] && ![name hasSuffix:@".*"]) {
             
             targetName = [name stringByAppendingString:kPubNubPresenceChannelNameSuffix];
         }

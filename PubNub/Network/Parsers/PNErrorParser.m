@@ -1,7 +1,7 @@
 /**
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import "PNErrorParser.h"
 #import "PNDictionary.h"
@@ -27,7 +27,7 @@
 
 #pragma mark - Parsing
 
-+ (nullable NSDictionary<NSString *, id> *)parsedServiceResponse:(id)response {
++ (NSDictionary<NSString *, id> *)parsedServiceResponse:(id)response {
     
     // To handle case when response is unexpected for this type of operation processed value sent through 
     // 'nil' initialized local variable.
@@ -39,14 +39,15 @@
         NSMutableDictionary *errorData = [NSMutableDictionary new];
         if (response[@"message"] || response[@"error"]) {
             
-            errorData[@"information"] = (response[@"message"]?: response[@"error"]);
+            id errorDescription = response[@"error"]?: response[@"error_message"];
+            errorData[@"information"] = response[@"message"]?: errorDescription;
         }
         
         if (response[@"payload"]) {
             
             errorData[@"channels"] = (response[@"payload"][@"channels"]?: @[]);
             errorData[@"channelGroups"] = (response[@"payload"][@"channel-groups"]?: @[]);
-            if (!errorData[@"channels"] && !errorData[@"channel-groups"]) {
+            if (!response[@"payload"][@"channels"] && !response[@"payload"][@"channel-groups"]) {
                 
                 errorData[@"data"] = response[@"payload"];
             }

@@ -1,16 +1,16 @@
 #import "PubNub+Core.h"
+#import "PNPublishSequence.h"
 #import "PNStateListener.h"
 #import "PNClientState.h"
 #import "PNSubscriber.h"
+#import "PNTelemetry.h"
 #import "PNHeartbeat.h"
 #import "PNLogMacro.h"
-#import "PNLog.h"
 
 
 #pragma mark Class forward
 
-@class PNRequestParameters, PNConfiguration, PNClientState, PNStateListener, PNSubscriber,
-       PNHeartbeat, PNResult, PNStatus;
+@class PNRequestParameters, PNConfiguration, PNNetwork, PNResult, PNStatus;
 
 
 NS_ASSUME_NONNULL_BEGIN
@@ -23,7 +23,7 @@ NS_ASSUME_NONNULL_BEGIN
  
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 @interface PubNub (Private)
 
@@ -40,12 +40,30 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly, copy) PNConfiguration *configuration;
 
 /**
+ @brief      Stores reference on unique instance identifier.
+ @discussion Identifier used by presence service to track multiple clients which is configured for same 
+             \c uuid and trigger events like \c leave only if all client instances not subscribed for
+             particular channel. \c timeout event can be triggered only if all clients went \c offline 
+             (w/o unsubscription)
+
+ @since 4.5.4
+ */
+@property (nonatomic, readonly, copy) NSString *instanceID;
+
+/**
  @brief  Stores reference on instance which manage all subscribe loop logic and help to deliver updates from 
          remote data objects live feed to the client.
  
  @since 4.0
  */
 @property (nonatomic, readonly, strong) PNSubscriber *subscriberManager;
+
+/**
+ @brief  Stores reference on instance which manage currently published message sequence number.
+ 
+ @since 4.5.2
+ */
+@property (nonatomic, readonly, strong) PNPublishSequence *sequenceManager;
 
 /**
  @brief  Stores reference on instance which is responsible for cached client state management.
@@ -69,6 +87,29 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly, strong) PNHeartbeat *heartbeatManager;
 
 /**
+ @brief Stores reference on \b PubNub network manager configured to be used for 'subscription' API 
+        group with long-polling.
+ 
+ @since 4.0
+ */
+@property (nonatomic, strong, nullable) PNNetwork *subscriptionNetwork;
+
+/**
+ @brief Stores reference on \b PubNub network manager configured to be used for 'non-subscription'
+        API group.
+ 
+ @since 4.0
+ */
+@property (nonatomic, strong, nullable) PNNetwork *serviceNetwork;
+
+/**
+ @brief  Stores reference on instance which is responsible for client telemetry gathering and sending.
+ 
+ @since 4.6.2
+ */
+@property (nonatomic, readonly, strong) PNTelemetry *telemetryManager;
+
+/**
  @brief  Stores reference about recent client state (whether it was connected or not).
  
  @since 4.0
@@ -84,29 +125,6 @@ NS_ASSUME_NONNULL_BEGIN
  @since 4.0
  */
 @property (nonatomic, readonly, strong) dispatch_queue_t callbackQueue;
-
-
-///------------------------------------------------
-/// @name Logger
-///------------------------------------------------
-
-/**
-@brief  Called by Cocoa Lumberjack during initialization.
-
-@return Desired logger level for \b PubNub client main class.
-
-@since 4.0
-*/
-+ (DDLogLevel)ddLogLevel;
-
-/**
-@brief  Allow modify logger level used by Cocoa Lumberjack with logging macros.
-
-@param logLevel New log level which should be used by logger.
-
-@since 4.0
-*/
-+ (void)ddSetLogLevel:(DDLogLevel)logLevel;
 
 
 ///------------------------------------------------
@@ -139,13 +157,6 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (void)processOperation:(PNOperationType)operationType withParameters:(PNRequestParameters *)parameters 
                     data:(nullable NSData *)data completionBlock:(nullable id)block;
-
-/**
- @brief  Cancel any active long-polling operations scheduled for processing.
- 
- @since 4.0
- */
-- (void)cancelAllLongPollingOperations;
 
 
 ///------------------------------------------------

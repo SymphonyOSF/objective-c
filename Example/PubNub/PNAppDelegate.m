@@ -76,11 +76,6 @@
 
 - (void)pubNubInit {
 
-    [PNLog enabled:YES];
-    [PNLog dumpToFile:YES];
-    [PNLog setMaximumLogFileSize:(10 * 1024 * 1024)];
-    [PNLog setMaximumNumberOfLogFiles:10];
-
     // Initialize PubNub client.
     self.myConfig = [PNConfiguration configurationWithPublishKey:_pubKey subscribeKey:_subKey];
 
@@ -89,6 +84,13 @@
 
     // Bind config
     self.client = [PubNub clientWithConfiguration:self.myConfig];
+    
+    // Configure logger
+    self.client.logger.enabled = YES;
+    self.client.logger.writeToFile = YES;
+    self.client.logger.maximumLogFileSize = (10 * 1024 * 1024);
+    self.client.logger.maximumNumberOfLogFiles = 10;
+    [self.client.logger setLogLevel:PNVerboseLogLevel];
 
     // Bind didReceiveMessage, didReceiveStatus, and didReceivePresenceEvent 'listeners' to this delegate
     // just be sure the target has implemented the PNObjectEventListener extension
@@ -243,7 +245,6 @@
 
 - (void)pubNubUnsubFromChannelGroups {
     [self.client unsubscribeFromChannelGroups:@[@"myChannelGroup"] withPresence:NO];
-
 
 }
 
@@ -504,10 +505,19 @@
 
 - (void)client:(PubNub *)client didReceiveMessage:(PNMessageResult *)message {
     
+    if (![message.data.channel isEqualToString:message.data.subscription]) {
+        
+        // Message has been received on channel group stored in message.data.subscription.
+    }
+    else {
+        
+        // Message has been received on channel stored in message.data.channel.
+    }
+    
     if (message) {
         
-        NSLog(@"Received message: %@ on channel %@ at %@", message.data.message,
-              message.data.subscribedChannel, message.data.timetoken);
+        NSLog(@"Received message from '%@': %@ on channel %@ at %@", message.data.publisher, 
+              message.data.message, message.data.channel, message.data.timetoken);
     }
 }
 
@@ -515,7 +525,26 @@
 
 - (void)client:(PubNub *)client didReceivePresenceEvent:(PNPresenceEventResult *)event {
     
-    NSLog(@"^^^^^ Did receive presence event: %@", event.data.presenceEvent);
+    if (![event.data.channel isEqualToString:event.data.subscription]) {
+        
+        // Presence event has been received on channel group stored in event.data.subscription.
+    }
+    else {
+        
+        // Presence event has been received on channel stored in event.data.channel.
+    }
+    
+    if (![event.data.presenceEvent isEqualToString:@"state-change"]) {
+        
+        NSLog(@"%@ \"%@'ed\"\nat: %@ on %@ (Occupancy: %@)", event.data.presence.uuid, 
+              event.data.presenceEvent, event.data.presence.timetoken, event.data.channel,
+              event.data.presence.occupancy);
+    }
+    else {
+        
+        NSLog(@"%@ changed state at: %@ on %@ to: %@", event.data.presence.uuid, 
+              event.data.presence.timetoken, event.data.channel, event.data.presence.state);
+    }
 }
 
 #pragma mark - Streaming Data didReceiveStatus Listener
@@ -567,7 +596,7 @@
         if (status.operation == PNSubscribeOperation) {
             
             NSLog(@"Decryption failed for message from channel: %@\nmessage: %@",
-                  ((PNMessageData *)status.associatedObject).subscribedChannel, 
+                  ((PNMessageData *)status.associatedObject).channel, 
                   ((PNMessageData *)status.associatedObject).message);
         }
     }
@@ -582,7 +611,17 @@
         NSLog(@"This may happen when you connect to a public WiFi Hotspot that requires you to auth via your web browser first,");
         NSLog(@"or if there is a proxy somewhere returning an HTML access denied error, or if there was an intermittent server issue.");
     }
-
+    else if (status.category == PNRequestURITooLongCategory) {
+        if (status.operation == PNSubscribeOperation) {
+            
+            NSLog(@"Too many channels has been passed to subscribe API.");
+        }
+        else {
+            
+            NSLog(@"Depending from used API this error may mean what to big message has been publish for publish API,");
+            NSLog(@" or too many channels has been passed to stream controller at once.");
+        }
+    }
     else if (status.category == PNTimeoutCategory) {
 
         NSLog(@"For whatever reason, the request timed out. Temporary connectivity issues, etc.");
@@ -679,7 +718,7 @@
 
     if (status.operation == PNSubscribeOperation) {
 
-        PNSubscribeStatus *subscriberStatus = (PNSubscribeStatus *)status;
+        PNSubscribeStatus *subscribeStatus = (PNSubscribeStatus *)status;
         // Specific to the subscribe loop operation, you can handle connection events
         // These status checks are only available via the subscribe status completion block or
         // on the long-running subscribe loop listener didReceiveStatus
@@ -690,7 +729,7 @@
             // This event happens when radio / connectivity is lost
 
             NSLog(@"^^^^ Non-error status: Unexpected Disconnect, Channel Info: %@",
-                  subscriberStatus.subscribedChannels);
+                  subscribeStatus.subscribedChannels);
         }
 
         else if (status.category == PNConnectedCategory) {
@@ -700,7 +739,7 @@
 
             // NSLog(@"Subscribe Connected to %@", status.data[@"channels"]);
             NSLog(@"^^^^ Non-error status: Connected, Channel Info: %@",
-                    subscriberStatus.subscribedChannels);
+                    subscribeStatus.subscribedChannels);
             [self pubNubPublish];
 
         }
@@ -710,8 +749,16 @@
             // This event happens when radio / connectivity is lost
 
             NSLog(@"^^^^ Non-error status: Reconnected, Channel Info: %@",
-                    subscriberStatus.subscribedChannels);
+                    subscribeStatus.subscribedChannels);
 
+        }
+        else if (status.category == PNRequestMessageCountExceededCategory) {
+            
+            /**
+             Looks like client received a lot of messages at once (larget than specified 
+             'requestMessageCountThreshold') and potentially history request maybe required.
+            */
+            NSLog(@"^^^^ Non-error status: Message Count Exceeded");
         }
     }
     else if (status.operation == PNUnsubscribeOperation) {
@@ -738,6 +785,8 @@
     self.myConfig.uuid = [self randomString];
     self.myConfig.origin = @"pubsub.pubnub.com";
     self.myConfig.authKey = _authKey;
+    
+    self.myConfig.stripMobilePayload = NO;
 
     // Presence Settings
     self.myConfig.presenceHeartbeatValue = 120;
@@ -748,8 +797,10 @@
 
     // Time Token Handling Settings
     self.myConfig.keepTimeTokenOnListChange = YES;
-    self.myConfig.restoreSubscription = YES;
     self.myConfig.catchUpOnSubscriptionRestore = YES;
+    
+    // Messages threshold
+    self.myConfig.requestMessageCountThreshold = 100;
 }
 
 - (NSString *)randomString {
@@ -767,8 +818,6 @@
     // Time Token Handling Settings
     NSLog(@"keepTimeTokenOnChannelChange: %@",
             (self.myConfig.shouldKeepTimeTokenOnListChange ? @"YES" : @"NO"));
-    NSLog(@"resubscribeOnConnectionRestore: %@",
-            (self.myConfig.shouldRestoreSubscription ? @"YES" : @"NO"));
     NSLog(@"catchUpOnSubscriptionRestore: %@",
             (self.myConfig.shouldTryCatchUpOnSubscriptionRestore ? @"YES" : @"NO"));
 

@@ -1,10 +1,11 @@
 /**
  @author Sergey Mamontov
  @since 4.0
- @copyright © 2009-2016 PubNub, Inc.
+ @copyright © 2009-2017 PubNub, Inc.
  */
 #import "PubNub+State.h"
 #import "PNClientStateUpdateStatus.h"
+#import "PNAPICallBuilder+Private.h"
 #import "PNRequestParameters.h"
 #import "PubNub+CorePrivate.h"
 #import "PNStatus+Private.h"
@@ -104,27 +105,54 @@ NS_ASSUME_NONNULL_END
 @implementation PubNub (State)
 
 
+#pragma mark - API Builder support
+
+- (PNStateAPICallBuilder *(^)(void))state {
+    
+    PNStateAPICallBuilder *builder = nil;
+    builder = [PNStateAPICallBuilder builderWithExecutionBlock:^(NSArray<NSString *> *flags, 
+                                                                 NSDictionary *parameters) {
+                            
+        NSString *uuid = parameters[NSStringFromSelector(@selector(uuid))];
+        NSString *object = (parameters[NSStringFromSelector(@selector(channel))]?: 
+                            parameters[NSStringFromSelector(@selector(channelGroup))]);
+        BOOL forChannel = (parameters[NSStringFromSelector(@selector(channel))] != nil);
+        NSDictionary *state = parameters[NSStringFromSelector(@selector(state))];
+        id block = parameters[@"block"];
+        if ([flags containsObject:NSStringFromSelector(@selector(audit))]) {
+            
+            [self stateForUUID:uuid onChannel:forChannel withName:object withCompletion:block];
+        }
+        else { [self setState:state forUUID:uuid onChannel:forChannel withName:object withCompletion:block]; }
+    }];
+    
+    return ^PNStateAPICallBuilder *{ return builder; };
+}
+
+
 #pragma mark - Client state information manipulation
 
-- (void)setState:(nullable NSDictionary<NSString *, id> *)state forUUID:(NSString *)uuid 
-       onChannel:(NSString *)channel withCompletion:(nullable PNSetStateCompletionBlock)block {
+- (void)setState:(NSDictionary<NSString *, id> *)state forUUID:(NSString *)uuid onChannel:(NSString *)channel 
+  withCompletion:(PNSetStateCompletionBlock)block {
     
     [self setState:state forUUID:uuid onChannel:YES withName:channel withCompletion:block];
 }
 
-- (void)setState:(nullable NSDictionary<NSString *, id> *)state forUUID:(NSString *)uuid 
-  onChannelGroup:(NSString *)group withCompletion:(nullable PNSetStateCompletionBlock)block {
+- (void)setState:(NSDictionary<NSString *, id> *)state forUUID:(NSString *)uuid 
+  onChannelGroup:(NSString *)group withCompletion:(PNSetStateCompletionBlock)block {
     
     [self setState:state forUUID:uuid onChannel:NO withName:group withCompletion:block];
 }
 
-- (void)setState:(nullable NSDictionary<NSString *, id> *)state forUUID:(NSString *)uuid 
-       onChannel:(BOOL)onChannel withName:(NSString *)object
-  withCompletion:(nullable PNSetStateCompletionBlock)block {
+- (void)setState:(NSDictionary<NSString *, id> *)state forUUID:(NSString *)uuid onChannel:(BOOL)onChannel 
+        withName:(NSString *)object withCompletion:(PNSetStateCompletionBlock)block {
     
     __weak __typeof(self) weakSelf = self;
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    dispatch_queue_t queue = (self.configuration.applicationExtensionSharedGroupIdentifier != nil ? dispatch_get_main_queue() :
+                              dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
+    dispatch_async(queue, ^{
         
+        __strong __typeof__(weakSelf) strongSelf = weakSelf;
         PNRequestParameters *parameters = [PNRequestParameters new];
         [parameters addPathComponent:(onChannel ? [PNString percentEscapedString:object] : @",")
                       forPlaceholder:@"{channel}"];
@@ -141,19 +169,12 @@ NS_ASSUME_NONNULL_END
                              forFieldName:@"channel-group"];
         }
         
-        DDLogAPICall([[self class] ddLogLevel], @"<PubNub::API> Set %@'s state on '%@' channel%@: "
-                     "%@.", (uuid?: @"<error>"), (object?: @"<error>"), (!onChannel ? @" group" : @""), 
+        PNLogAPICall(strongSelf.logger, @"<PubNub::API> Set %@'s state on '%@' channel%@: %@.",
+                     (uuid?: @"<error>"), (object?: @"<error>"), (!onChannel ? @" group" : @""), 
                      parameters.query[@"state"]);
         
-        [self processOperation:PNSetStateOperation withParameters:parameters
-               completionBlock:^(PNStatus *status) {
-                   
-           // Silence static analyzer warnings.
-           // Code is aware about this case and at the end will simply call on 'nil' object method.
-           // In most cases if referenced object become 'nil' it mean what there is no more need in
-           // it and probably whole client instance has been deallocated.
-           #pragma clang diagnostic push
-           #pragma clang diagnostic ignored "-Wreceiver-is-weak"
+        [strongSelf processOperation:PNSetStateOperation withParameters:parameters
+                     completionBlock:^(PNStatus *status) {
            if (status.isError) {
                 
                status.retryBlock = ^{
@@ -164,7 +185,6 @@ NS_ASSUME_NONNULL_END
            }
            [weakSelf handleSetStateStatus:(PNClientStateUpdateStatus *)status
                                   forUUID:uuid atObject:object withCompletion:block];
-           #pragma clang diagnostic pop
        }];
     });
 }
@@ -199,20 +219,13 @@ NS_ASSUME_NONNULL_END
         [parameters addQueryParameter:[PNString percentEscapedString:object] forFieldName:@"channel-group"];
     }
     
-    DDLogAPICall([[self class] ddLogLevel], @"<PubNub::API> State request on '%@' channel%@: %@.",
-                 (uuid?: @"<error>"), (object?: @"<error>"), (!onChannel ? @" group" : @""));
+    PNLogAPICall(self.logger, @"<PubNub::API> State request on '%@' channel%@: %@.", (uuid?: @"<error>"),
+                 (object?: @"<error>"), (!onChannel ? @" group" : @""));
     
     __weak __typeof(self) weakSelf = self;
     [self processOperation:(onChannel ? PNStateForChannelOperation : PNStateForChannelGroupOperation)
             withParameters:parameters 
-           completionBlock:^(PNResult * _Nullable result, PNStatus * _Nullable status) {
-               
-        // Silence static analyzer warnings.
-        // Code is aware about this case and at the end will simply call on 'nil' object method.
-        // In most cases if referenced object become 'nil' it mean what there is no more need in
-        // it and probably whole client instance has been deallocated.
-        #pragma clang diagnostic push
-        #pragma clang diagnostic ignored "-Wreceiver-is-weak"
+           completionBlock:^(PNResult *result, PNStatus *status) {
         if (status.isError) {
             
             status.retryBlock = ^{
@@ -222,7 +235,6 @@ NS_ASSUME_NONNULL_END
         }
         [weakSelf handleStateResult:(PNChannelClientStateResult *)result withStatus:status
                             forUUID:uuid atChannel:onChannel object:object withCompletion:block];
-        #pragma clang diagnostic pop
     }];
 }
 
@@ -230,7 +242,7 @@ NS_ASSUME_NONNULL_END
 #pragma mark - Handlers
 
 - (void)handleSetStateStatus:(PNClientStateUpdateStatus *)status forUUID:(NSString *)uuid
-                    atObject:(NSString *)object withCompletion:(nullable PNSetStateCompletionBlock)block {
+                    atObject:(NSString *)object withCompletion:(PNSetStateCompletionBlock)block {
     
     // Check whether state modification to the client has been successful or not.
     if (status && !status.isError && [uuid isEqualToString:self.configuration.uuid]) {
@@ -241,7 +253,7 @@ NS_ASSUME_NONNULL_END
     [self callBlock:block status:YES withResult:nil andStatus:(PNStatus *)status];
 }
 
-- (void)handleStateResult:(nullable PNChannelClientStateResult *)result withStatus:(nullable PNStatus *)status
+- (void)handleStateResult:(PNChannelClientStateResult *)result withStatus:(PNStatus *)status
                   forUUID:(NSString *)uuid atChannel:(BOOL)isChannel object:(NSString *)object
            withCompletion:(id)block {
     
