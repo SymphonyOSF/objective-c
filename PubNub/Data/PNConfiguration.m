@@ -160,6 +160,7 @@ static NSString * const kPNConfigurationDeviceIDKey = @"PNConfigurationDeviceID"
     configuration.keepTimeTokenOnListChange = self.shouldKeepTimeTokenOnListChange;
     configuration.restoreSubscription = self.shouldRestoreSubscription;
     configuration.catchUpOnSubscriptionRestore = self.shouldTryCatchUpOnSubscriptionRestore;
+    configuration.protocolClasses = self.protocolClasses;
     
     return configuration;
 }
