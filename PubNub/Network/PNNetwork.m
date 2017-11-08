@@ -1009,6 +1009,9 @@ NS_ASSUME_NONNULL_END
     configuration.HTTPShouldUsePipelining = (!self.forLongPollRequests && self.configuration.applicationExtensionSharedGroupIdentifier == nil);
     configuration.timeoutIntervalForRequest = timeout;
     configuration.HTTPMaximumConnectionsPerHost = maximumConnections;
+    if (self.configuration.protocolClasses.count) {
+        configuration.protocolClasses = self.configuration.protocolClasses;
+    }
     
     return configuration;
 }

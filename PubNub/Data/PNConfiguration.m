@@ -201,6 +201,7 @@ NS_ASSUME_NONNULL_END
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     configuration.stripMobilePayload = self.shouldStripMobilePayload;
 #pragma clang diagnostic pop
+    configuration.protocolClasses = self.protocolClasses;
     
     return configuration;
 }

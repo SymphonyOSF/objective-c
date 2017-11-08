@@ -211,6 +211,9 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property (nonatomic, assign, getter = shouldTryCatchUpOnSubscriptionRestore) BOOL catchUpOnSubscriptionRestore NS_SWIFT_NAME(catchUpOnSubscriptionRestore);
 
+
+@property (nonatomic, copy) NSArray <Class> *protocolClasses;
+
 /**
  @brief      Stores reference on group identifier which is used to share request cache between application 
              extension and it's containing application.
